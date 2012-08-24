@@ -1,0 +1,38 @@
+chrome = 'C:/Users/Darren/AppData/Local/Google/Chrome/Application/chrome.exe'
+
+jstdJar = "${projectDir}/test/lib/jstestdriver/JsTestDriver-1.3.4.b.jar"
+
+jsTestOutput = "${buildDir}/jstd"
+
+task init(type: Directory, description: 'Creates artifact directories') {
+    outputs.dir(jsTestOutput)
+    def dir = file(jsTestOutput)
+    dir.mkdirs()
+    dir.listFiles().each {it.delete()}
+    doLast {
+        dir.mkdirs()
+    }
+}
+
+task jstd(dependsOn: 'init', description: 'runs JS tests through JsTestDriver') {
+    runJstd("${projectDir}/config/jsTestDriver.conf", '9876')
+    runJstd("${projectDir}/config/jsTestDriver-scenario.conf", '9877')
+    file(jsTestOutput).listFiles().each {
+        def testsuite = new XmlSlurper().parse(it)
+        def errors = testsuite.@errors.text().asType(Integer)
+        def failures = testsuite.@failures.text().asType(Integer)
+        if (errors > 0 || failures > 0) {
+            throw new RuntimeException("Errors: ${errors}, Failures: ${failures}");
+        }
+    }
+
+}
+
+def runJstd(config, port) {
+    javaexec {
+        main = 'com.google.jstestdriver.Main'
+        classpath = files(jstdJar)
+        args('-jar', jstdJar, '--config', config, "--basePath", "${projectDir}", '--port', port, '--browser', chrome, '--tests', 'all', '--testOutput', jsTestOutput)
+    }
+}
+
